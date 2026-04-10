@@ -1,4 +1,4 @@
-import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app/AppSidebar";
 import { Button } from "@/components/ui/button";
@@ -7,10 +7,14 @@ import { useStore } from "@/store";
 import { NotificationsDropdown } from "@/components/app/NotificationsDropdown";
 import { SearchModal } from "@/components/app/SearchModal";
 import { useState, useEffect } from "react";
+import { useNotifications } from "@/hooks/useBoardData";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function AppLayout() {
-  const { notifications, setSearchOpen } = useStore();
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const { setSearchOpen } = useStore();
+  const { data: notifications = [] } = useNotifications();
+  const { user } = useAuth();
+  const unreadCount = notifications.filter(n => !n.is_read).length;
   const [notifOpen, setNotifOpen] = useState(false);
 
   useEffect(() => {
@@ -23,6 +27,11 @@ export default function AppLayout() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [setSearchOpen]);
+
+  const getInitials = (email?: string) => {
+    if (!email) return '?';
+    return email.substring(0, 2).toUpperCase();
+  };
 
   return (
     <SidebarProvider>
@@ -51,7 +60,7 @@ export default function AppLayout() {
                 {notifOpen && <NotificationsDropdown onClose={() => setNotifOpen(false)} />}
               </div>
               <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-[11px] font-medium text-primary-foreground ml-1">
-                AC
+                {getInitials(user?.email)}
               </div>
             </div>
           </header>
