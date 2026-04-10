@@ -251,7 +251,7 @@ export function useUpdateCard() {
 
   return useMutation({
     mutationFn: async ({ cardId, updates }: { cardId: string; updates: Record<string, unknown> }) => {
-      const { error } = await supabase.from('cards').update(updates).eq('id', cardId);
+      const { error } = await supabase.from('cards').update(updates as any).eq('id', cardId);
       if (error) throw error;
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['cards'] }),
