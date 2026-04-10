@@ -1,2 +1,2 @@
-// Supabase placeholder - replace with actual client when connecting backend
-export const supabase = {};
+// Re-export the real Supabase client from the auto-generated integration
+export { supabase } from "@/integrations/supabase/client";
