@@ -2,13 +2,14 @@ import { useStore } from "@/store";
 import { Plus, MoreHorizontal, AlertCircle } from "lucide-react";
 import { useState } from "react";
 import { DndContext, closestCorners, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { KanbanCard } from "./KanbanCard";
+import { useBoardData, useMoveCard, useAddCard, type CardView } from "@/hooks/useBoardData";
 
 export function KanbanView({ boardId }: { boardId: string }) {
-  const { lists, cards, moveCard, addCard } = useStore();
-  const boardLists = lists.filter(l => l.boardId === boardId).sort((a, b) => a.order - b.order);
+  const { lists, cards } = useBoardData(boardId);
+  const moveCard = useMoveCard();
+  const addCardMut = useAddCard();
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -25,23 +26,22 @@ export function KanbanView({ boardId }: { boardId: string }) {
     const cardId = active.id as string;
     const overId = over.id as string;
 
-    // Check if dropped on a list
-    const targetList = boardLists.find(l => l.id === overId);
+    const targetList = lists.find(l => l.id === overId);
     if (targetList) {
-      moveCard(cardId, targetList.id, 0);
+      moveCard.mutate({ cardId, listId: targetList.id, position: 0 });
       return;
     }
 
-    // Dropped on another card
     const targetCard = cards.find(c => c.id === overId);
     if (targetCard) {
-      moveCard(cardId, targetCard.listId, targetCard.order);
+      moveCard.mutate({ cardId, listId: targetCard.list_id, position: targetCard.position });
     }
   };
 
   const handleAddCard = (listId: string) => {
     if (newTitle.trim()) {
-      addCard(listId, newTitle.trim());
+      const listCards = cards.filter(c => c.list_id === listId);
+      addCardMut.mutate({ listId, boardId, title: newTitle.trim(), position: listCards.length });
       setNewTitle("");
       setAddingTo(null);
     }
@@ -52,9 +52,9 @@ export function KanbanView({ boardId }: { boardId: string }) {
   return (
     <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="flex gap-4 p-4 h-full overflow-x-auto">
-        {boardLists.map(list => {
-          const listCards = cards.filter(c => c.listId === list.id).sort((a, b) => a.order - b.order);
-          const overWip = list.wipLimit && listCards.length > list.wipLimit;
+        {lists.map(list => {
+          const listCards = cards.filter(c => c.list_id === list.id).sort((a, b) => a.position - b.position);
+          const overWip = list.wip_limit && listCards.length > list.wip_limit;
 
           return (
             <div key={list.id} className="w-[280px] flex-shrink-0 flex flex-col">
@@ -62,10 +62,10 @@ export function KanbanView({ boardId }: { boardId: string }) {
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-medium text-foreground">{list.title}</h3>
                   <span className="text-xs text-muted-foreground">{listCards.length}</span>
-                  {list.wipLimit && (
+                  {list.wip_limit && (
                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${overWip ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'}`}>
                       {overWip && <AlertCircle className="w-2.5 h-2.5 inline mr-0.5" />}
-                      max {list.wipLimit}
+                      max {list.wip_limit}
                     </span>
                   )}
                 </div>

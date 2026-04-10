@@ -1,20 +1,23 @@
 import { useStore } from "@/store";
+import { useBoardData } from "@/hooks/useBoardData";
 
 export function TimelineView({ boardId }: { boardId: string }) {
-  const { cards, lists, setCurrentCard } = useStore();
-  const boardCards = cards.filter(c => c.boardId === boardId && c.dueDate).sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
+  const { cards, lists } = useBoardData(boardId);
+  const { setCurrentCard } = useStore();
+  const boardCards = cards.filter(c => c.due_date).sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime());
 
   const priorityColors: Record<string, string> = {
-    urgent: 'bg-destructive',
-    high: 'bg-warning',
-    medium: 'bg-primary',
-    low: 'bg-muted-foreground',
+    CRITICAL: 'bg-destructive',
+    HIGH: 'bg-warning',
+    MEDIUM: 'bg-primary',
+    LOW: 'bg-muted-foreground',
+    NONE: 'bg-muted-foreground/50',
   };
 
-  // Simple Gantt-like view
-  const startDate = new Date('2026-04-01');
-  const endDate = new Date('2026-04-30');
-  const totalDays = 30;
+  const now = new Date();
+  const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const totalDays = endDate.getDate();
 
   const getPosition = (date: string) => {
     const d = new Date(date);
@@ -24,26 +27,26 @@ export function TimelineView({ boardId }: { boardId: string }) {
 
   return (
     <div className="p-4">
-      <h2 className="text-sm font-medium text-foreground mb-4">Timeline — April 2026</h2>
+      <h2 className="text-sm font-medium text-foreground mb-4">
+        Timeline — {now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+      </h2>
 
-      {/* Date header */}
       <div className="flex mb-2">
         <div className="w-48 flex-shrink-0" />
         <div className="flex-1 flex">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="flex-1 text-[10px] text-muted-foreground text-center">
-              Apr {1 + i * 5}
+              {now.toLocaleDateString('en-US', { month: 'short' })} {1 + i * 5}
             </div>
           ))}
         </div>
       </div>
 
-      {/* Cards */}
       <div className="space-y-1.5">
         {boardCards.map(card => {
-          const list = lists.find(l => l.id === card.listId);
-          const pos = getPosition(card.dueDate!);
-          const createdPos = getPosition(card.createdAt.split('T')[0]);
+          const list = lists.find(l => l.id === card.list_id);
+          const pos = getPosition(card.due_date!);
+          const createdPos = card.created_at ? getPosition(card.created_at.split('T')[0]) : 0;
           const barWidth = Math.max(8, pos - createdPos);
 
           return (
