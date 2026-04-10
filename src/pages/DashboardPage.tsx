@@ -1,35 +1,46 @@
-import { useStore } from "@/store";
 import { useNavigate } from "react-router-dom";
-import { Star, Clock, Plus, BarChart3, Users, Kanban } from "lucide-react";
+import { Star, Clock, Plus, BarChart3, Kanban } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useBoards, useToggleStar } from "@/hooks/useBoards";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function DashboardPage() {
-  const { boards, cards, currentSprint, toggleStar } = useStore();
   const navigate = useNavigate();
-  const starredBoards = boards.filter(b => b.starred);
-  const recentBoards = [...boards].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  const { data: boards = [], isLoading } = useBoards();
+  const toggleStar = useToggleStar();
+  const { user } = useAuth();
 
-  const totalCards = cards.length;
-  const doneCards = cards.filter(c => c.listId === 'list5').length;
-  const inProgress = cards.filter(c => c.listId === 'list3').length;
+  const starredBoards = boards.filter(b => b.starred);
+  const recentBoards = [...boards].sort((a, b) => new Date(b.updated_at || '').getTime() - new Date(a.updated_at || '').getTime());
+
+  if (isLoading) {
+    return (
+      <div className="p-6 max-w-5xl mx-auto animate-fade-in">
+        <div className="space-y-4">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-20 rounded-xl bg-muted animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-5xl mx-auto animate-fade-in">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Welcome back, Alex</p>
+          <p className="text-sm text-muted-foreground">Welcome back{user?.email ? `, ${user.email.split('@')[0]}` : ''}</p>
         </div>
         <Button size="sm"><Plus className="w-4 h-4 mr-1" /> New Board</Button>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {[
-          { label: 'Total Cards', value: totalCards, icon: Kanban },
-          { label: 'In Progress', value: inProgress, icon: Clock },
-          { label: 'Completed', value: doneCards, icon: BarChart3 },
-          { label: 'Sprint Progress', value: `${Math.round(currentSprint.completedPoints / currentSprint.totalPoints * 100)}%`, icon: Users },
+          { label: 'Total Boards', value: boards.length, icon: Kanban },
+          { label: 'Starred', value: starredBoards.length, icon: Star },
+          { label: 'Recent', value: recentBoards.length, icon: Clock },
+          { label: 'Active', value: boards.filter(b => !b.is_archived).length, icon: BarChart3 },
         ].map(stat => (
           <div key={stat.label} className="p-4 rounded-xl border bg-card">
             <div className="flex items-center gap-2 mb-2">
@@ -41,21 +52,6 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Sprint */}
-      <div className="p-4 rounded-xl border bg-card mb-8">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h3 className="font-medium text-foreground text-sm">{currentSprint.name}</h3>
-            <p className="text-xs text-muted-foreground">{currentSprint.startDate} → {currentSprint.endDate}</p>
-          </div>
-          <span className="text-sm font-medium text-foreground">{currentSprint.completedPoints}/{currentSprint.totalPoints} pts</span>
-        </div>
-        <div className="h-2 bg-muted rounded-full overflow-hidden">
-          <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${(currentSprint.completedPoints / currentSprint.totalPoints) * 100}%` }} />
-        </div>
-      </div>
-
-      {/* Starred */}
       {starredBoards.length > 0 && (
         <div className="mb-8">
           <h2 className="text-sm font-medium text-foreground mb-3 flex items-center gap-1.5">
@@ -70,38 +66,47 @@ export default function DashboardPage() {
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-foreground">{board.title}</span>
-                  <Star className="w-3.5 h-3.5 text-warning fill-warning" onClick={e => { e.stopPropagation(); toggleStar(board.id); }} />
+                  <Star
+                    className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500"
+                    onClick={e => { e.stopPropagation(); toggleStar.mutate({ boardId: board.id, starred: true }); }}
+                  />
                 </div>
                 <p className="text-xs text-muted-foreground line-clamp-1">{board.description}</p>
-                <p className="text-[10px] text-muted-foreground mt-2">{board.members.length} members</p>
+                <p className="text-[10px] text-muted-foreground mt-2">{board.member_count} members</p>
               </button>
             ))}
           </div>
         </div>
       )}
 
-      {/* Recent */}
       <div>
         <h2 className="text-sm font-medium text-foreground mb-3 flex items-center gap-1.5">
           <Clock className="w-3.5 h-3.5" /> Recent Boards
         </h2>
-        <div className="grid md:grid-cols-3 gap-3">
-          {recentBoards.map(board => (
-            <button
-              key={board.id}
-              className="p-4 rounded-xl border bg-card text-left hover:shadow-sm transition-shadow"
-              onClick={() => navigate(`/app/board/${board.id}`)}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-foreground">{board.title}</span>
-                <button onClick={e => { e.stopPropagation(); toggleStar(board.id); }}>
-                  <Star className={`w-3.5 h-3.5 ${board.starred ? 'text-warning fill-warning' : 'text-muted-foreground'}`} />
-                </button>
-              </div>
-              <p className="text-xs text-muted-foreground line-clamp-1">{board.description}</p>
-            </button>
-          ))}
-        </div>
+        {recentBoards.length === 0 ? (
+          <div className="p-8 rounded-xl border bg-card text-center">
+            <Kanban className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">No boards yet. Create your first board to get started!</p>
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-3 gap-3">
+            {recentBoards.map(board => (
+              <button
+                key={board.id}
+                className="p-4 rounded-xl border bg-card text-left hover:shadow-sm transition-shadow"
+                onClick={() => navigate(`/app/board/${board.id}`)}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-foreground">{board.title}</span>
+                  <button onClick={e => { e.stopPropagation(); toggleStar.mutate({ boardId: board.id, starred: board.starred }); }}>
+                    <Star className={`w-3.5 h-3.5 ${board.starred ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground'}`} />
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground line-clamp-1">{board.description}</p>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
