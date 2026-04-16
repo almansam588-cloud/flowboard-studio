@@ -5,14 +5,20 @@ import { DndContext, closestCorners, DragEndEvent, DragOverlay, DragStartEvent, 
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { KanbanCard } from "./KanbanCard";
 import { useBoardData, useMoveCard, useAddCard, type CardView } from "@/hooks/useBoardData";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 export function KanbanView({ boardId }: { boardId: string }) {
   const { lists, cards } = useBoardData(boardId);
   const moveCard = useMoveCard();
   const addCardMut = useAddCard();
+  const queryClient = useQueryClient();
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [addingList, setAddingList] = useState(false);
+  const [newListTitle, setNewListTitle] = useState("");
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -45,6 +51,22 @@ export function KanbanView({ boardId }: { boardId: string }) {
       setNewTitle("");
       setAddingTo(null);
     }
+  };
+
+  const handleAddList = async () => {
+    if (!newListTitle.trim()) return;
+    const { error } = await supabase.from('lists').insert({
+      board_id: boardId,
+      title: newListTitle.trim(),
+      position: lists.length,
+    });
+    if (error) {
+      toast.error("Failed to create list");
+      return;
+    }
+    setNewListTitle("");
+    setAddingList(false);
+    queryClient.invalidateQueries({ queryKey: ['lists', boardId] });
   };
 
   const activeCard = activeId ? cards.find(c => c.id === activeId) : null;
@@ -109,6 +131,33 @@ export function KanbanView({ boardId }: { boardId: string }) {
             </div>
           );
         })}
+
+        {/* Add List */}
+        <div className="w-[280px] flex-shrink-0">
+          {addingList ? (
+            <div className="p-3 rounded-lg border bg-card">
+              <input
+                className="w-full p-2 rounded-md border bg-background text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary mb-2"
+                placeholder="List title..."
+                value={newListTitle}
+                onChange={e => setNewListTitle(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAddList()}
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <button className="px-3 py-1 rounded-md bg-primary text-primary-foreground text-xs font-medium" onClick={handleAddList}>Add List</button>
+                <button className="px-3 py-1 rounded-md text-xs text-muted-foreground hover:text-foreground" onClick={() => setAddingList(false)}>Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <button
+              className="w-full flex items-center gap-2 p-3 rounded-lg border border-dashed text-sm text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+              onClick={() => setAddingList(true)}
+            >
+              <Plus className="w-4 h-4" /> Add List
+            </button>
+          )}
+        </div>
       </div>
 
       <DragOverlay>

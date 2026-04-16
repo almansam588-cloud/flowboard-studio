@@ -3,9 +3,13 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Users, Paperclip, Clock, Link2, MessageCircle, Play, Square } from "lucide-react";
+import { Calendar, Paperclip, Link2, MessageCircle } from "lucide-react";
 import { useState } from "react";
-import { useCardDetail, useUpdateCard, useBoardData } from "@/hooks/useBoardData";
+import { useCardDetail, useUpdateCard } from "@/hooks/useBoardData";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 const priorityOptions = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const;
 const priorityStyles: Record<string, string> = {
@@ -19,7 +23,10 @@ const priorityStyles: Record<string, string> = {
 export function CardDetailModal({ cardId, onClose }: { cardId: string; onClose: () => void }) {
   const { data: detail, isLoading } = useCardDetail(cardId);
   const updateCard = useUpdateCard();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [newComment, setNewComment] = useState("");
+  const [sendingComment, setSendingComment] = useState(false);
 
   if (isLoading || !detail?.card) return null;
 
@@ -28,6 +35,26 @@ export function CardDetailModal({ cardId, onClose }: { cardId: string; onClose: 
   const getInitials = (name: string | null) => {
     if (!name) return '?';
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  };
+
+  const handleSendComment = async () => {
+    if (!newComment.trim() || !user) return;
+    setSendingComment(true);
+
+    const { error } = await supabase.from('comments').insert({
+      card_id: cardId,
+      author_id: user.id,
+      content: JSON.stringify({ text: newComment.trim() }),
+      content_text: newComment.trim(),
+    });
+
+    setSendingComment(false);
+    if (error) {
+      toast.error("Failed to send comment");
+      return;
+    }
+    setNewComment("");
+    queryClient.invalidateQueries({ queryKey: ['card_detail', cardId] });
   };
 
   return (
@@ -108,9 +135,12 @@ export function CardDetailModal({ cardId, onClose }: { cardId: string; onClose: 
                     placeholder="Write a comment..."
                     value={newComment}
                     onChange={e => setNewComment(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSendComment()}
                     className="text-sm"
                   />
-                  <Button size="sm" variant="outline" disabled={!newComment.trim()}>Send</Button>
+                  <Button size="sm" variant="outline" disabled={!newComment.trim() || sendingComment} onClick={handleSendComment}>
+                    Send
+                  </Button>
                 </div>
               </div>
 
