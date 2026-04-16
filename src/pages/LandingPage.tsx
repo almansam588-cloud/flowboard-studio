@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Play, Kanban, Calendar, BarChart3, Bot, Link2, MessageCircle, Check, Sparkles, Eye, Users, Zap } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { DarkModeToggle } from "@/components/app/DarkModeToggle";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -50,6 +51,7 @@ export default function LandingPage() {
             <a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a>
           </div>
           <div className="flex items-center gap-3">
+            <DarkModeToggle />
             <Button variant="ghost" size="sm" onClick={() => navigate('/login')}>Log in</Button>
             <Button size="sm" onClick={() => navigate('/signup')}>Get Started</Button>
           </div>

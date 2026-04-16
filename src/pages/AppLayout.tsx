@@ -3,6 +3,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app/AppSidebar";
 import { Button } from "@/components/ui/button";
 import { Bell, Search, Command } from "lucide-react";
+import { DarkModeToggle } from "@/components/app/DarkModeToggle";
 import { useStore } from "@/store";
 import { NotificationsDropdown } from "@/components/app/NotificationsDropdown";
 import { SearchModal } from "@/components/app/SearchModal";
@@ -50,6 +51,7 @@ export default function AppLayout() {
                   <Command className="w-2.5 h-2.5" />K
                 </kbd>
               </Button>
+              <DarkModeToggle />
               <div className="relative">
                 <Button variant="ghost" size="icon" className="relative" onClick={() => setNotifOpen(!notifOpen)}>
                   <Bell className="w-4 h-4 text-muted-foreground" />
