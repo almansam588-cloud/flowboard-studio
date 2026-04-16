@@ -2,22 +2,121 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Kanban, ArrowRight, Users, Layout, Sparkles } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Kanban, ArrowRight, Users, Layout, Sparkles, Loader2 } from "lucide-react";
+import { useNavigate, Navigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
 const templates = [
-  { id: 'blank', name: 'Blank Board', desc: 'Start from scratch' },
-  { id: 'scrum', name: 'Scrum Sprint', desc: 'Backlog → Done workflow' },
-  { id: 'marketing', name: 'Marketing', desc: 'Campaign planning' },
-  { id: 'bugs', name: 'Bug Tracker', desc: 'Track & fix issues' },
+  { id: 'blank', name: 'Blank Board', desc: 'Start from scratch', lists: ['To Do', 'In Progress', 'Done'] },
+  { id: 'scrum', name: 'Scrum Sprint', desc: 'Backlog → Done workflow', lists: ['Backlog', 'Sprint Backlog', 'In Progress', 'Review', 'Done'] },
+  { id: 'marketing', name: 'Marketing', desc: 'Campaign planning', lists: ['Ideas', 'Planning', 'In Progress', 'Published'] },
+  { id: 'bugs', name: 'Bug Tracker', desc: 'Track & fix issues', lists: ['Reported', 'Confirmed', 'Fixing', 'Testing', 'Resolved'] },
 ];
 
 export default function OnboardingPage() {
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
   const [step, setStep] = useState(0);
   const [workspace, setWorkspace] = useState("");
   const [invites, setInvites] = useState("");
   const [template, setTemplate] = useState("blank");
+  const [loading, setLoading] = useState(false);
+
+  if (authLoading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+
+  const handleFinish = async () => {
+    if (!workspace.trim()) {
+      toast.error("Please enter a workspace name");
+      return;
+    }
+    setLoading(true);
+
+    try {
+      const slug = workspace.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+      // Create workspace
+      const { data: ws, error: wsError } = await supabase
+        .from('workspaces')
+        .insert({ name: workspace.trim(), slug: slug || 'workspace', owner_id: user.id })
+        .select()
+        .single();
+      if (wsError) throw wsError;
+
+      // Add self as workspace member (OWNER)
+      await supabase.from('workspace_members').insert({
+        workspace_id: ws.id,
+        user_id: user.id,
+        role: 'OWNER',
+      });
+
+      // Create board
+      const { data: board, error: boardError } = await supabase
+        .from('boards')
+        .insert({
+          title: `${workspace.trim()} Board`,
+          workspace_id: ws.id,
+          created_by: user.id,
+        })
+        .select()
+        .single();
+      if (boardError) throw boardError;
+
+      // Add self as board member (ADMIN)
+      await supabase.from('board_members').insert({
+        board_id: board.id,
+        user_id: user.id,
+        role: 'ADMIN',
+      });
+
+      // Create lists from template
+      const selectedTemplate = templates.find(t => t.id === template) || templates[0];
+      for (let i = 0; i < selectedTemplate.lists.length; i++) {
+        await supabase.from('lists').insert({
+          board_id: board.id,
+          title: selectedTemplate.lists[i],
+          position: i,
+        });
+      }
+
+      // Create default labels
+      const defaultLabels = [
+        { name: 'Bug', color: '#EF4444' },
+        { name: 'Feature', color: '#3B82F6' },
+        { name: 'Enhancement', color: '#8B5CF6' },
+        { name: 'Urgent', color: '#F97316' },
+        { name: 'Design', color: '#EC4899' },
+        { name: 'Documentation', color: '#10B981' },
+      ];
+      for (const label of defaultLabels) {
+        await supabase.from('labels').insert({ board_id: board.id, ...label });
+      }
+
+      // Send invites if any
+      if (invites.trim()) {
+        const emails = invites.split(',').map(e => e.trim()).filter(Boolean);
+        for (const email of emails) {
+          await supabase.from('workspace_invitations').insert({
+            workspace_id: ws.id,
+            email,
+            invited_by: user.id,
+          });
+        }
+      }
+
+      // Mark onboarding as completed
+      await supabase.from('profiles').update({ onboarding_completed: true }).eq('id', user.id);
+
+      toast.success("Workspace created! 🎉");
+      navigate('/app');
+    } catch (err: any) {
+      toast.error(err.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const steps = [
     {
@@ -75,7 +174,6 @@ export default function OnboardingPage() {
           <span className="font-bold text-xl text-foreground">Flowboard</span>
         </div>
 
-        {/* Progress */}
         <div className="flex items-center gap-2 mb-6 justify-center">
           {steps.map((_, i) => (
             <div key={i} className={`h-1.5 w-12 rounded-full transition-colors ${i <= step ? 'bg-primary' : 'bg-muted'}`} />
@@ -89,11 +187,13 @@ export default function OnboardingPage() {
           </div>
           {steps[step].content}
           <div className="flex gap-3 mt-6">
-            {step > 0 && <Button variant="outline" onClick={() => setStep(s => s - 1)} className="flex-1">Back</Button>}
+            {step > 0 && <Button variant="outline" onClick={() => setStep(s => s - 1)} className="flex-1" disabled={loading}>Back</Button>}
             <Button
-              onClick={() => step < 2 ? setStep(s => s + 1) : navigate('/app')}
+              onClick={() => step < 2 ? setStep(s => s + 1) : handleFinish()}
               className="flex-1"
+              disabled={loading || (step === 0 && !workspace.trim())}
             >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               {step < 2 ? 'Continue' : 'Get Started'} <ArrowRight className="ml-2 w-4 h-4" />
             </Button>
           </div>

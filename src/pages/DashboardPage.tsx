@@ -3,12 +3,15 @@ import { Star, Clock, Plus, BarChart3, Kanban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useBoards, useToggleStar } from "@/hooks/useBoards";
 import { useAuth } from "@/hooks/useAuth";
+import { CreateBoardModal } from "@/components/app/CreateBoardModal";
+import { useState } from "react";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { data: boards = [], isLoading } = useBoards();
   const toggleStar = useToggleStar();
   const { user } = useAuth();
+  const [createOpen, setCreateOpen] = useState(false);
 
   const starredBoards = boards.filter(b => b.starred);
   const recentBoards = [...boards].sort((a, b) => new Date(b.updated_at || '').getTime() - new Date(a.updated_at || '').getTime());
@@ -32,7 +35,7 @@ export default function DashboardPage() {
           <h1 className="text-xl font-bold text-foreground">Dashboard</h1>
           <p className="text-sm text-muted-foreground">Welcome back{user?.email ? `, ${user.email.split('@')[0]}` : ''}</p>
         </div>
-        <Button size="sm"><Plus className="w-4 h-4 mr-1" /> New Board</Button>
+        <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="w-4 h-4 mr-1" /> New Board</Button>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -86,7 +89,10 @@ export default function DashboardPage() {
         {recentBoards.length === 0 ? (
           <div className="p-8 rounded-xl border bg-card text-center">
             <Kanban className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">No boards yet. Create your first board to get started!</p>
+            <p className="text-sm text-muted-foreground mb-3">No boards yet. Create your first board to get started!</p>
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus className="w-4 h-4 mr-1" /> Create Board
+            </Button>
           </div>
         ) : (
           <div className="grid md:grid-cols-3 gap-3">
@@ -108,6 +114,8 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      <CreateBoardModal open={createOpen} onClose={() => setCreateOpen(false)} />
     </div>
   );
 }
