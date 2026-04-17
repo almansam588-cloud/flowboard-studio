@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,9 +23,40 @@ export default function OnboardingPage() {
   const [invites, setInvites] = useState("");
   const [template, setTemplate] = useState("blank");
   const [loading, setLoading] = useState(false);
+  const [hasWorkspace, setHasWorkspace] = useState<boolean | null>(null);
 
-  if (authLoading) return null;
+  useEffect(() => {
+    if (!user) {
+      setHasWorkspace(false);
+      return;
+    }
+
+    let active = true;
+
+    supabase
+      .from('workspace_members')
+      .select('workspace_id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .then(({ count, error }) => {
+        if (!active) return;
+
+        if (error) {
+          console.error('Failed to check workspace membership', error);
+          setHasWorkspace(false);
+          return;
+        }
+
+        setHasWorkspace((count ?? 0) > 0);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
+  if (authLoading || hasWorkspace === null) return null;
   if (!user) return <Navigate to="/login" replace />;
+  if (hasWorkspace) return <Navigate to="/app" replace />;
 
   const handleFinish = async () => {
     if (!workspace.trim()) {
