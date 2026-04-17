@@ -37,20 +37,22 @@ export default function OnboardingPage() {
     try {
       const slug = workspace.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-      // Create workspace
-      const { data: ws, error: wsError } = await supabase
+      // Create workspace (don't .select() — RLS SELECT requires membership which doesn't exist yet)
+      const wsId = crypto.randomUUID();
+      const { error: wsError } = await supabase
         .from('workspaces')
-        .insert({ name: workspace.trim(), slug: slug || 'workspace', owner_id: user.id })
-        .select()
-        .single();
+        .insert({ id: wsId, name: workspace.trim(), slug: slug || 'workspace', owner_id: user.id });
       if (wsError) throw wsError;
 
-      // Add self as workspace member (OWNER)
-      await supabase.from('workspace_members').insert({
-        workspace_id: ws.id,
+      // Add self as workspace member (OWNER) — this enables SELECT on the workspace going forward
+      const { error: memberError } = await supabase.from('workspace_members').insert({
+        workspace_id: wsId,
         user_id: user.id,
         role: 'OWNER',
       });
+      if (memberError) throw memberError;
+
+      const ws = { id: wsId };
 
       // Create board
       const { data: board, error: boardError } = await supabase
