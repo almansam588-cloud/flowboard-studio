@@ -8,7 +8,7 @@ import { TimelineView } from "@/components/app/TimelineView";
 import { DashboardView } from "@/components/app/DashboardView";
 import { CardDetailModal } from "@/components/app/CardDetailModal";
 import { useBoards, useToggleStar } from "@/hooks/useBoards";
-import { useBoardData } from "@/hooks/useBoardData";
+import { useBoardData, useBoardRealtime } from "@/hooks/useBoardData";
 
 const viewOptions: { id: ViewMode; label: string; icon: typeof Kanban }[] = [
   { id: 'kanban', label: 'Kanban', icon: Kanban },
