@@ -1,4 +1,4 @@
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -94,8 +94,11 @@ export function CreateBoardModal({ open, onClose }: { open: boolean; onClose: ()
   return (
     <Dialog open={open} onOpenChange={() => onClose()}>
       <DialogContent className="sm:max-w-md">
-        <h2 className="text-lg font-semibold text-foreground mb-4">Create Board</h2>
-        <div className="space-y-4">
+        <DialogHeader>
+          <DialogTitle>Create Board</DialogTitle>
+          <DialogDescription>Add a new board to your workspace.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 mt-2">
           <div>
             <Label className="text-sm">Board name</Label>
             <Input placeholder="e.g. Product Launch Q3" value={title} onChange={e => setTitle(e.target.value)} className="mt-1.5" autoFocus />
