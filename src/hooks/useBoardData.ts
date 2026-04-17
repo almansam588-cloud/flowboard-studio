@@ -1,6 +1,48 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+
+/**
+ * Subscribes to realtime changes for a board's cards, lists, comments,
+ * assignments and labels. Invalidates relevant React Query caches so all
+ * connected clients see updates instantly.
+ */
+export function useBoardRealtime(boardId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!boardId) return;
+
+    const channel = supabase
+      .channel(`board:${boardId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cards', filter: `board_id=eq.${boardId}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ['cards', boardId] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lists', filter: `board_id=eq.${boardId}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ['lists', boardId] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['cards', boardId] });
+        queryClient.invalidateQueries({ queryKey: ['card_detail'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'card_assignments' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['cards', boardId] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'card_labels' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['cards', boardId] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'boards', filter: `id=eq.${boardId}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ['board', boardId] });
+        queryClient.invalidateQueries({ queryKey: ['boards'] });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [boardId, queryClient]);
+}
 
 // Enriched card type matching what the UI expects
 export interface CardView {

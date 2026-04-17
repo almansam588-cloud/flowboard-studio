@@ -8,7 +8,7 @@ import { TimelineView } from "@/components/app/TimelineView";
 import { DashboardView } from "@/components/app/DashboardView";
 import { CardDetailModal } from "@/components/app/CardDetailModal";
 import { useBoards, useToggleStar } from "@/hooks/useBoards";
-import { useBoardData } from "@/hooks/useBoardData";
+import { useBoardData, useBoardRealtime } from "@/hooks/useBoardData";
 
 const viewOptions: { id: ViewMode; label: string; icon: typeof Kanban }[] = [
   { id: 'kanban', label: 'Kanban', icon: Kanban },
@@ -24,6 +24,7 @@ export default function BoardPage() {
   const { data: boards = [] } = useBoards();
   const toggleStar = useToggleStar();
   const { members } = useBoardData(boardId);
+  useBoardRealtime(boardId);
   const board = boards.find(b => b.id === boardId);
   const viewMode = boardId ? getBoardView(boardId) : 'kanban';
 
