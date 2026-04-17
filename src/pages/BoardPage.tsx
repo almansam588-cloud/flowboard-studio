@@ -24,6 +24,7 @@ export default function BoardPage() {
   const { data: boards = [] } = useBoards();
   const toggleStar = useToggleStar();
   const { members } = useBoardData(boardId);
+  useBoardRealtime(boardId);
   const board = boards.find(b => b.id === boardId);
   const viewMode = boardId ? getBoardView(boardId) : 'kanban';
 
